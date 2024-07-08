@@ -54,7 +54,7 @@ def copy(frm:str, to:str):
            shutil.copy(frm_path,to)
        else:
            destination = os.path.join(to,item)
-           os.mkdir(destination)
+           os.makedirs(destination)
            copy(frm_path,destination)
 
 def main():

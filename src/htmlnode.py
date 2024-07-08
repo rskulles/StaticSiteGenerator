@@ -1,9 +1,14 @@
+class __BASENODE__:
+    def to_html(self)->str:
+     raise NotImplementedError("Not Implemented")
+    def protp_to_html(self)->str:
+        raise NotImplementedError("Not Implemented")
 
-class HTMLNode:
-    def __init__(self, tag = None, value = None, children = None, props = None):
+class HTMLNode(__BASENODE__):
+    def __init__(self, tag = None, value = None, children= None, props = None):
         self.tag = tag
         self.value = value
-        self.children = children
+        self.children:list[__BASENODE__]|None= children
         self.props = props
     def to_html(self):
         raise NotImplementedError
@@ -28,7 +33,7 @@ class LeafNode(HTMLNode):
             return f"<{self.tag}{self.props_to_html()}>{self.value}</{self.tag}>"
 
 class ParentNode(HTMLNode):
-    def __init__(self, tag, children, props = None):
+    def __init__(self, tag, children:list[HTMLNode], props = None):
         super().__init__(tag, None, children, props)
     def to_html(self):
 

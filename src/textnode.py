@@ -5,12 +5,13 @@ from htmlnode import ParentNode
 from htmlnode import HTMLNode
 
 class TextType(Enum):
-    TEXT   = 1
-    BOLD   = 2
-    ITALIC = 3
-    CODE   = 4
-    LINK   = 5
-    IMAGE  = 6
+    TEXT        = 1
+    BOLD        = 2
+    ITALIC      = 3
+    BOLD_ITALIC = 4
+    CODE        = 5
+    LINK        = 6
+    IMAGE       = 7
 
 class BlockType(Enum):
     PARAGRAPH = 1
@@ -22,7 +23,7 @@ class BlockType(Enum):
 
 
 class TextNode:
-    def __init__(self, text: str, text_type: TextType, url:str=None):
+    def __init__(self, text: str, text_type: TextType, url:str|None =None):
         self.text = text
         self.text_type = text_type
         self.url = url
@@ -31,15 +32,17 @@ class TextNode:
     def __repr__(self):
         return f"TextNode({self.text}, {self.text_type}, {self.url})"
 
-def text_node_to_html_node(text_node:TextNode)->LeafNode:
+def text_node_to_html_node(text_node:TextNode)->HTMLNode:
         node = None
         match text_node.text_type:
             case TextType.TEXT:
                 node = LeafNode(None,text_node.text)
             case TextType.BOLD:
-                node = LeafNode("b",text_node.text)
+                node = LeafNode("strong",text_node.text)
             case TextType.ITALIC:
-                node = LeafNode("i",text_node.text)
+                node = LeafNode("em",text_node.text)
+            case TextType.BOLD_ITALIC:
+                node = ParentNode("em",[LeafNode("strong",text_node.text)])
             case TextType.CODE:
                 node = LeafNode("code",text_node.text)
             case TextType.LINK:
@@ -50,18 +53,19 @@ def text_node_to_html_node(text_node:TextNode)->LeafNode:
                 raise ValueError(f"Unkown Value {text_node.text_type}")
         return node
 
-def split_node_delimiter(old_nodes, delimiter,text_type:TextType):
+def split_node_delimiter(old_nodes:list[TextNode], delimiter:str,text_type:TextType)->list[TextNode]:
     new_nodes =[]
     for n in old_nodes:
         if n.text_type != TextType.TEXT:
             new_nodes.append(n)
         else:
+            sections:list[str] = []
             sections = n.text.split(delimiter)
             append_nodes =[]
             for i in range(len(sections)):
                 if i%2 == 0 and sections[i] != "":
                     append_nodes.append(TextNode(sections[i],TextType.TEXT))
-                else:
+                elif sections[i]!="":
                     text = ""
                     url = None
 
@@ -70,10 +74,12 @@ def split_node_delimiter(old_nodes, delimiter,text_type:TextType):
                             text=sections[i];
                         case TextType.ITALIC:
                             text=sections[i]
+                        case TextType.BOLD_ITALIC:
+                            text= sections[i]
                         case TextType.CODE:
                             text=sections[i]
                         case _:
-                            raise ValueError(f"TextType of {tex_type} is not splitable by a delimiter")
+                            raise ValueError(f"TextType of {text_type} is not splitable by a delimiter")
 
                     append_nodes.append(TextNode(text,text_type,url))
             new_nodes.extend(append_nodes)
@@ -135,7 +141,8 @@ def extract_markdown_links(text:str):
 
 def text_to_textnodes(text:str)->list[TextNode]:
     node = TextNode(text,TextType.TEXT)
-    new_nodes = split_node_delimiter([node],'**',TextType.BOLD)
+    new_nodes = split_node_delimiter([node],"***",TextType.BOLD_ITALIC)
+    new_nodes = split_node_delimiter(new_nodes,'**',TextType.BOLD)
     new_nodes = split_node_delimiter(new_nodes,'*',TextType.ITALIC)
     new_nodes = split_node_delimiter(new_nodes,'`',TextType.CODE)
     new_nodes = split_node_image(new_nodes)
@@ -150,9 +157,13 @@ def markdown_to_blocks(markdown:str)->list[str]:
 
     for i in range(len(lines)):
         line = str.strip(lines[i])
-        if line =="" or str.isspace(line):
+        if line =="" or str.isspace(line) or line =="<br>":
             if concat:
                 block_count += 1
+
+            if line == "<br>":
+                blocks.append("<br>")
+                block_count+=1
             concat = False
             continue
         if concat :
@@ -171,10 +182,10 @@ def __is_heading__(block:str)->bool:
 def __is_code__(block:str)->bool:
     return block.startswith("```") and block.endswith("```")
 
-def __is_quote_(block:str)->bool:
+def __is_quote__(block:str)->bool:
     lines = block.split("\n")
     for line in lines:
-        if not line.startswith("> "):
+        if not line.startswith(">"):
             return False
     return True
 
@@ -214,7 +225,7 @@ def block_to_block_type(block:str)->BlockType:
     if __is_code__(block):
         return BlockType.CODE
 
-    if __is_quote_(block):
+    if __is_quote__(block):
         return BlockType.QUOTE
 
     if __is_unordered_list__(block):
@@ -243,15 +254,19 @@ def __block_to_heading__(block:str)->ParentNode:
     children.extend(html_nodes)
     return ParentNode(f"h{heading}",children)
 
+def __quote_line_string__(line:str)->str:
+    if line == ">" or line =="> ":
+        return ""
+    else:
+        return line[2:]
+
 def __block_to_quote__(block:str)->ParentNode:
     children =[]
-    for line in block.split("\n"):
-        p = __block_to_paragraph__(line[2:])
-        children.append(p)
+    new_md = "\n".join(map(__quote_line_string__,block.split("\n")))
+    children.append(markdown_to_html_node(new_md))
     return ParentNode("blockquote",children)
 
 def __block_to_code__(block:str)->ParentNode:
-    print(f"CODE BLOCK: {block}")
     return  ParentNode("pre",[LeafNode("code",str.strip(block[3:-3]))])
 
 def __block_to_ulist__(block:str)->ParentNode:
@@ -272,6 +287,7 @@ def __block_to_olist__(block:str)->ParentNode:
 def markdown_to_html_node(markdown:str)->ParentNode:
     children = []
     blocks = markdown_to_blocks(markdown)
+    print(f"BLOCKS: {blocks}")
     for block in blocks:
         block_type = block_to_block_type(block)
         match block_type:
@@ -295,13 +311,12 @@ def markdown_to_html_node(markdown:str)->ParentNode:
 
 if __name__ == "__main__":
     text = """
-```
-print("Lord")
-print("of")
-print("the")
-print("rings")
-```
+> # Heading In blockquote
+>
+> 1. list item 1
+> 2. list item 2
+>
+> *Everything* is going as **planned**
 """
     node = markdown_to_html_node(text)
-    print(node)
     print(node.to_html())
