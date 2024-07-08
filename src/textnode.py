@@ -336,7 +336,6 @@ def __block_to_olist__(block: str) -> ParentNode:
 def markdown_to_html_node(markdown: str) -> ParentNode:
     children = []
     blocks = markdown_to_blocks(markdown)
-    print(f"BLOCKS: {blocks}")
     for block in blocks:
         block_type = block_to_block_type(block)
         match block_type:
