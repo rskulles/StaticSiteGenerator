@@ -308,15 +308,3 @@ def markdown_to_html_node(markdown:str)->ParentNode:
 
     root_node = ParentNode("div", children)
     return root_node
-
-if __name__ == "__main__":
-    text = """
-> # Heading In blockquote
->
-> 1. list item 1
-> 2. list item 2
->
-> *Everything* is going as **planned**
-"""
-    node = markdown_to_html_node(text)
-    print(node.to_html())
