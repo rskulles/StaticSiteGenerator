@@ -1,3 +1,3 @@
 # Static Site Generator
 
-todo: Update Readme
+Tool that takes basic markdown and generates a static website from it.
